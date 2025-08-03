@@ -3,6 +3,8 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
+	"net"
+	"net/netip"
 	"os"
 	"sync"
 
@@ -73,4 +75,44 @@ func main() {
 	}
 }
 
-// TODO: open db one time and import it to each goroutine
+func FindIranFromTop10M(domains []string, db *geoip2.Reader) []string {
+	var irDomains []string
+
+	for _, domain := range domains {
+		if net.ParseIP(domain) != nil {
+			continue
+		}
+		ips, err := net.LookupIP(domain)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error by resolving: %v\n", err)
+			continue
+		}
+
+		var ipv4 net.IP
+		for _, ip := range ips {
+			if ip.To4() != nil {
+				ipv4 = ip
+				break
+			}
+		}
+		if ipv4 == nil {
+			continue
+		}
+
+		ip, err := netip.ParseAddr(ipv4.String())
+		if err != nil {
+			panic(err)
+		}
+
+		record, err := db.Country(ip)
+		if err != nil {
+			fmt.Println("GeoIP error:", err)
+			continue
+		}
+		if record.Country.ISOCode == "IR" {
+			fmt.Println(domain)
+			irDomains = append(irDomains, domain)
+		}
+	}
+	return irDomains
+}

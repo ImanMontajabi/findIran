@@ -3,12 +3,10 @@ package main
 import (
 	"encoding/csv"
 	"fmt"
-	"github.com/oschwald/geoip2-golang/v2"
 	"github.com/xuri/excelize/v2"
 	"golang.org/x/net/publicsuffix"
 	"io"
 	"net"
-	"net/netip"
 	"os"
 	"strings"
 )
@@ -105,46 +103,4 @@ func LoadFromXLS(path string) []string {
 		}
 	}
 	return domains
-}
-
-func FindIranFromTop10M(domains []string, db *geoip2.Reader) []string {
-	var irDomains []string
-
-	for _, domain := range domains {
-		if net.ParseIP(domain) != nil {
-			continue
-		}
-		ips, err := net.LookupIP(domain)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error by resolving: %v\n", err)
-			continue
-		}
-
-		var ipv4 net.IP
-		for _, ip := range ips {
-			if ip.To4() != nil {
-				ipv4 = ip
-				break
-			}
-		}
-		if ipv4 == nil {
-			continue
-		}
-
-		ip, err := netip.ParseAddr(ipv4.String())
-		if err != nil {
-			panic(err)
-		}
-
-		record, err := db.Country(ip)
-		if err != nil {
-			fmt.Println("GeoIP error:", err)
-			continue
-		}
-		if record.Country.ISOCode == "IR" {
-			fmt.Println(domain)
-			irDomains = append(irDomains, domain)
-		}
-	}
-	return irDomains
 }
